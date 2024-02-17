@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F0F8FF;
+        }
+
+        .chat-container {
+            width: 90%;
+            margin: 20px auto;
+            overflow: auto;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            background-color: #F8F8FF;
+        }
+
+        .message {
+            margin: 10px;
+            padding: 10px;
+            border-radius: 10px;
+            word-wrap: break-word;
+            max-width: 70%;
+            max-height: auto;
+            box-sizing: border-box;
+            word-break: break-word;
+        }
+
+        .user-message {
+            align-self: flex-end;
+            background-color: #ddd;
+            color: #555;
+            height: auto;
+        }
+
+        .bot-message {
+            align-self: flex-start;
+            background-color: #ddd;
+            color: #555;
+            height: auto;
+        }
+
+        .error-message {
+            align-self: center;
+            background-color: #FFB6C1;
+            color: #fff;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        img {
+            align-self: flex-end;
+            max-width: 75%;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="chat-container" id="chatContainer">
+        <!-- Messages will be added here dynamically -->
+    </div>
+
+    <div style="padding:0px 20px; display: flex; justify-content: space-between ; align-items: center; margin: 20px;">
+        <button onclick="document.getElementById('imageInput').click();" style="display: inline-block; margin-right: 10px; cursor: pointer; color: black; height: 30px">
+            Upload Image
+        </button>
+        <div style="display: flex; gap: 15px; ">
+            <input type="file" accept="image/*" id="imageInput" style="display: none;" onchange="handleImageUpload(event)">
+
+            <input type="text" id="userInput" placeholder="Enter Query..." style="min-width: 600px; height:30px; width: 80%;">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        window.addEventListener("keydown", handleKeyPress);
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function sendMessage() {
+            var userInput = document.getElementById("userInput").value;
+
+            if (userInput.toLowerCase() === "img") {
+                document.getElementById("imageInput").click();
+            } else {
+                if (userInput !== null && userInput.trim() !== '') {
+                    displayMessage("user-message", userInput);
+
+                    var requestData = {
+                        query: userInput
+                    };
+
+                    fetch('http://127.0.0.1:8000/find', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(requestData),
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            var botResponse = data.bot_response;
+                            displayMessage("bot-message", `${botResponse}`);
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                        });
+
+                    document.getElementById("userInput").value = "";
+                } else {
+                    var dis = "Please enter a valid query";
+                    displayMessage("error-message", `${dis}`);
+
+                    setTimeout(() => {
+                        var errorMessage = document.querySelector(".error-message");
+                        if (errorMessage) {
+                            errorMessage.style.opacity = 0;
+                            setTimeout(() => {
+                                errorMessage.remove();
+                            }, 500);
+                        }
+                    }, 3000);
+                }
+            }
+        }
+
+        function handleImageUpload(event) {
+            var file = event.target.files[0];
+            displayImage(file);
+
+            // Call lung API with the image
+            var lungRequestData = new FormData();
+            lungRequestData.append('file', file);
+
+            fetch('http://127.0.0.1:8000/lung', {
+                method: 'POST',
+                body: lungRequestData,
+            })
+                .then(response => response.json())
+                .then(data => {
+                    var botResponse = `Lung Model Prediction: ${data.model1.predicted_class_label}`;
+                    displayMessage("bot-message", botResponse);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function displayImage(file) {
+            var imageElement = document.createElement("img");
+            imageElement.src = URL.createObjectURL(file);
+            document.getElementById("chatContainer").appendChild(imageElement);
+        }
+
+        function displayMessage(className, message) {
+            var messageElement = document.createElement("div");
+            messageElement.className = "message " + className;
+            messageElement.innerHTML = message;
+            document.getElementById("chatContainer").appendChild(messageElement);
+        }
+    </script>
+
+</body>
+
+</html>
